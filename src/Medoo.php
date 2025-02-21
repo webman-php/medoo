@@ -15,7 +15,8 @@
 namespace Webman\Medoo;
 
 
-use Workerman\Timer;
+use Webman\Context;
+use Workerman\Coroutine\Pool;
 
 /**
  * Class Medoo
@@ -35,23 +36,48 @@ class Medoo
 {
 
     /**
-     * @var \Medoo\Medoo
+     * @var Pool[]
      */
-    protected static $instances = [];
+    protected static array $pools = [];
 
     /**
      * @return \Medoo\Medoo
      */
     public static function instance($name = 'default')
     {
-        if (!isset(static::$instances[$name])) {
-            $config = config('plugin.webman.medoo.database');
-            static::$instances[$name] = new \Medoo\Medoo($config[$name]);
-            Timer::add(55, function () use ($name) {
-                static::$instances[$name]->query('select 1')->fetchAll();
-            });
+        $config = config('plugin.webman.medoo.database');
+        $key = "database.connections.$name";
+        $connection = Context::get($key);
+        if (!$connection) {
+            if (!isset(static::$pools[$name])) {
+                $poolConfig = $config[$name]['pool'] ?? [];
+                $pool = new Pool($poolConfig['max_connections'] ?? 6, $poolConfig);
+                $pool->setConnectionCreator(function () use ($config, $name) {
+                    return new \Medoo\Medoo($config[$name]);
+                });
+                $pool->setConnectionCloser(function ($connection) {
+                    $connection->pdo = null;
+                });
+                $pool->setHeartbeatChecker(function ($connection) {
+                    $connection->query('select 1')->fetchAll();
+                });
+                static::$pools[$name] = $pool;
+            }
+            try {
+                $connection = static::$pools[$name]->get();
+                Context::set($key, $connection);
+            } finally {
+                // We cannot use Coroutine::defer() because we may not be in a coroutine environment currently.
+                Context::onDestroy(function () use ($connection, $name) {
+                    try {
+                        $connection && static::$pools[$name]->put($connection);
+                    } catch (Throwable) {
+                        // ignore
+                    }
+                });
+            }
         }
-        return static::$instances[$name];
+        return $connection;
     }
 
 

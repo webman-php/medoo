@@ -8,9 +8,9 @@ class Install
     /**
      * @var array
      */
-    protected static $pathRelation = array (
-  'config/plugin/webman/medoo' => 'config/plugin/webman/medoo',
-);
+    protected static $pathRelation = [
+        'config/plugin/webman/medoo' => 'config/plugin/webman/medoo',
+    ];
 
     /**
      * Install

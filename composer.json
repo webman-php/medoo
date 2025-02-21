@@ -3,11 +3,13 @@
   "type": "library",
   "license": "MIT",
   "require": {
-    "catfan/medoo": "^2.1"
+    "catfan/medoo": "^2.1",
+    "workerman/webman-framework": "^2.1 || dev-master"
   },
   "autoload": {
     "psr-4": {
-      "Webman\\Medoo\\": "src"
+      "Webman\\Medoo\\": "src",
+      "support\\": "src/support"
     }
   }
 }
